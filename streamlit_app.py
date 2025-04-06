@@ -1,7 +1,10 @@
+
+# streamlit_app.py - Updated version
 import streamlit as st
 from datetime import datetime
 import pandas as pd
 import json
+import os
 
 # App configuration
 st.set_page_config(
@@ -29,110 +32,48 @@ try:
     chatbot = system_components["chatbot"]
     emailer = system_components["emailer"]
     analyzer = system_components["analyzer"]
+    
+    # Display success message
+    st.success("System components loaded successfully!")
+    
 except Exception as e:
     st.error(f"Failed to load data: {str(e)}")
-    st.stop()
-
-# Sidebar for navigation
-st.sidebar.title("Navigation")
-app_mode = st.sidebar.radio("Select Mode", ["Chat Interface", "Underutilized Carriers", "Email Generator"])
-
-# Chat Interface
-if app_mode == "Chat Interface":
-    st.header("Carrier Information Chat")
-    st.markdown("Ask questions about carrier usage, capacity, or contacts.")
+    st.warning("Running in demo mode with sample data")
     
-    # Chat container
-    chat_container = st.container()
+    # Create sample data for demo purposes
+    sample_data = {
+        'standardized_carrier_name': ['Carrier A', 'Carrier B', 'Carrier C'],
+        'configured_capacity': [1000, 2000, 1500],
+        'peak_usage': [300, 500, 700],
+        'usage_percentage': [30.0, 25.0, 46.7],
+        'carrier_company_account_manager_name': ['John Doe', 'Jane Smith', 'Mike Johnson'],
+        'carrier_company_account_manager_email': ['john@carriera.com', 'jane@carrierb.com', 'mike@carrierc.com'],
+        'first_line_contact_name': ['Support A', 'Support B', 'Support C'],
+        'first_line_contact_email': ['support@carriera.com', 'support@carrierb.com', 'support@carrierc.com']
+    }
     
-    # Display chat history
-    with chat_container:
-        for sender, message, time in st.session_state.chat_history:
-            if sender == "user":
-                st.markdown(f"**You ({time}):** {message}")
-            else:
-                st.markdown(f"**Assistant ({time}):** {message}")
+    df_merged = pd.DataFrame(sample_data)
     
-    # User input
-    user_query = st.text_input("Ask a question about carriers:", key="user_query")
-    if st.button("Submit") and user_query:
-        # Add user query to chat history
-        current_time = datetime.now().strftime("%H:%M:%S")
-        st.session_state.chat_history.append(("user", user_query, current_time))
-        
-        # Get bot response
-        try:
-            bot_response = chatbot.answer_query(user_query)
-            st.session_state.chat_history.append(("bot", bot_response, current_time))
-            
-            # Rerun to update the display
-            st.rerun()
-        except Exception as e:
-            st.error(f"Error processing query: {str(e)}")
-
-# Underutilized Carriers Report
-elif app_mode == "Underutilized Carriers":
-    st.header("Underutilized Carriers Report")
-    st.markdown(f"Showing carriers with usage below {system_components['analyzer'].USAGE_THRESHOLD_PERCENT}% of capacity")
+    # Create mock components
+    class MockAnalyzer:
+        def identify_underutilized_carriers(self, df):
+            df['proposed_capacity'] = (df['configured_capacity'] * 0.5).astype(int)
+            return df[df['usage_percentage'] < 40]
     
-    # Get underutilized carriers
-    underutilized = analyzer.identify_underutilized_carriers(df_merged)
+    class MockEmailer:
+        def generate_capacity_reduction_email(self, carrier_info):
+            return {
+                "to": carrier_info['carrier_company_account_manager_email'],
+                "cc": [carrier_info['first_line_contact_email']],
+                "subject": f"Capacity Adjustment for {carrier_info['standardized_carrier_name']}",
+                "body": f"Dear {carrier_info['carrier_company_account_manager_name']},\n\nWe propose reducing capacity...",
+                "carrier": carrier_info['standardized_carrier_name']
+            }
     
-    if underutilized is None or underutilized.empty:
-        st.success("No underutilized carriers found!")
-    else:
-        # Display the table
-        st.dataframe(underutilized[[
-            'standardized_carrier_name', 'configured_capacity', 
-            'peak_usage', 'usage_percentage', 'proposed_capacity'
-        ]].sort_values('usage_percentage'))
-        
-        # Show statistics
-        st.subheader("Statistics")
-        col1, col2 = st.columns(2)
-        col1.metric("Total Carriers", len(df_merged['standardized_carrier_name'].unique()))
-        col2.metric("Underutilized Carriers", len(underutilized))
-
-# Email Generator
-elif app_mode == "Email Generator":
-    st.header("Capacity Reduction Email Generator")
-    st.markdown("Generate emails for underutilized carriers")
+    class MockChatbot:
+        def answer_query(self, query):
+            return f"Sample response to: {query}"
     
-    # Get underutilized carriers
-    underutilized = analyzer.identify_underutilized_carriers(df_merged)
-    
-    if underutilized is None or underutilized.empty:
-        st.success("No underutilized carriers to notify!")
-    else:
-        # Carrier selection
-        selected_carrier = st.selectbox(
-            "Select Carrier",
-            underutilized['standardized_carrier_name'].unique()
-        )
-        
-        if st.button("Generate Email"):
-            carrier_info = underutilized[underutilized['standardized_carrier_name'] == selected_carrier].iloc[0].to_dict()
-            email_result = emailer.generate_capacity_reduction_email(carrier_info)
-            
-            if 'error' in email_result:
-                st.error(email_result['error'])
-            else:
-                # Store the generated email
-                st.session_state.generated_emails[selected_carrier] = email_result
-                
-                # Display the email
-                st.subheader(f"Email for {selected_carrier}")
-                st.markdown(f"**To:** {email_result['to']}")
-                st.markdown(f"**CC:** {', '.join(email_result['cc'])}")
-                st.markdown(f"**Subject:** {email_result['subject']}")
-                st.markdown("**Body:**")
-                st.text(email_result['body'])
-                
-                # Download button
-                email_json = json.dumps(email_result, indent=2)
-                st.download_button(
-                    label="Download Email as JSON",
-                    data=email_json,
-                    file_name=f"capacity_reduction_{selected_carrier}.json",
-                    mime="application/json"
-                )
+    analyzer = MockAnalyzer()
+    emailer = MockEmailer()
+    chatbot = MockChatbot()
