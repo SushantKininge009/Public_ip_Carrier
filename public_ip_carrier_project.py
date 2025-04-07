@@ -12,6 +12,19 @@ from datetime import datetime
 import json
 from typing import Dict, List, Optional
 
+from google.oauth2 import service_account
+import json
+
+# Load credentials from Streamlit secrets
+if 'gcp_service_account' in st.secrets:
+    gcp_credentials = service_account.Credentials.from_service_account_info(
+        dict(st.secrets["gcp_service_account"])
+    )
+    storage_client = storage.Client(credentials=gcp_credentials)
+else:
+    storage_client = storage.Client()  # Fallback to default credentials (if running locally)
+
+
 # Configuration (move to a config file or environment variables in production)
 class Config:
     PROJECT_ID = "gen-ai-rajan-labs"
