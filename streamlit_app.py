@@ -1,5 +1,4 @@
-
-# streamlit_app.py - Updated version
+# streamlit_app.py - Updated version with chat interface
 import streamlit as st
 from datetime import datetime
 import pandas as pd
@@ -18,6 +17,8 @@ if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'generated_emails' not in st.session_state:
     st.session_state.generated_emails = {}
+if 'user_input' not in st.session_state:
+    st.session_state.user_input = ""
 
 # App header
 st.title("Public IP Carrier Management Portal")
@@ -77,3 +78,31 @@ except Exception as e:
     analyzer = MockAnalyzer()
     emailer = MockEmailer()
     chatbot = MockChatbot()
+
+# Chat Interface
+st.header("Carrier Information Chatbot")
+
+# Display chat history
+chat_container = st.container()
+with chat_container:
+    for message in st.session_state.chat_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+# User input
+user_input = st.chat_input("Ask about carriers, capacity, or contacts...")
+if user_input:
+    # Add user message to chat history
+    st.session_state.chat_history.append({"role": "user", "content": user_input})
+    
+    # Get chatbot response
+    try:
+        bot_response = chatbot.answer_query(user_input)
+    except Exception as e:
+        bot_response = f"Error processing your query: {str(e)}"
+    
+    # Add bot response to chat history
+    st.session_state.chat_history.append({"role": "assistant", "content": bot_response})
+    
+    # Rerun to update the chat display
+    st.rerun()
