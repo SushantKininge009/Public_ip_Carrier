@@ -4,3 +4,4 @@ google-cloud-storage
 google-cloud-aiplatform
 fuzzywuzzy
 python-Levenshtein
+google-auth
